@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CCTV Accident Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #03070f;
+            --panel: rgba(6, 10, 28, 0.85);
+            --panel-strong: rgba(18, 25, 55, 0.95);
+            --accent: #3fe7ff;
+            --accent-strong: #ff9a3d;
+            --text: #e4ecff;
+            --muted: #9ab2d6;
+            --error: #ff6b6b;
+            --radius: 1.1rem;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+            background: radial-gradient(circle at 10% 20%, rgba(63, 231, 255, 0.25), transparent 45%),
+                        radial-gradient(circle at 80% 0%, rgba(255, 154, 61, 0.2), transparent 35%),
+                        var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        main {
+            width: min(1100px, 100%);
+            background: linear-gradient(135deg, var(--panel), var(--panel-strong));
+            border-radius: var(--radius);
+            padding: clamp(1.5rem, 3vw, 2.5rem);
+            box-shadow: 0 25px 60px rgba(3, 7, 15, 0.75);
+        }
+
+        h1 {
+            font-size: clamp(1.9rem, 4vw, 2.4rem);
+            margin: 0;
+        }
+
+        p.lead {
+            color: var(--muted);
+            margin-top: 0.35rem;
+            margin-bottom: 1.5rem;
+        }
+
+        form {
+            display: flex;
+            align-items: flex-end;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            font-weight: 500;
+            color: var(--muted);
+        }
+
+        input[type="file"] {
+            border-radius: 0.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.7rem 0.9rem;
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        button {
+            border: none;
+            border-radius: 0.9rem;
+            padding: 0.85rem 1.6rem;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #04101e;
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--muted);
+        }
+
+        button:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(63, 231, 255, 0.35);
+        }
+
+        .grid {
+            margin-top: 1.5rem;
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        }
+
+        .panel {
+            background: rgba(5, 10, 26, 0.9);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            min-height: 300px;
+        }
+
+        .panel h2 {
+            margin: 0;
+            font-size: 1.4rem;
+        }
+
+        .panel small {
+            color: var(--muted);
+        }
+
+        video,
+        img {
+            width: 100%;
+            border-radius: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: #03070f;
+            max-height: 260px;
+            object-fit: cover;
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 0.9rem 1rem;
+            border-radius: 0.8rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .status span {
+            font-size: 0.95rem;
+        }
+
+        dl {
+            margin: 1rem 0 0;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.35rem 0.9rem;
+        }
+
+        dt {
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        dd {
+            margin: 0;
+            color: var(--text);
+        }
+
+        ul {
+            margin: 0;
+            padding-left: 1rem;
+            color: var(--text);
+            line-height: 1.45;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>CCTV Accident Monitor</h1>
+        <p class="lead">Upload an MP4 clip from your CCTV feed. YOLO &amp; ByteTrack analyze the scene and alert if overlapping vehicles persist for five frames.</p>
+    </header>
+
+    {% if not model_ready %}
+        <div class="status">
+            <strong>Detector offline.</strong>
+            <span>{{ model_error or 'Place /models/yolov3... files before starting.' }}</span>
+        </div>
+    {% endif %}
+
+    <form id="uploadForm">
+        <label>
+            Video (.mp4)
+            <input id="videoInput" type="file" accept="video/mp4" required>
+        </label>
+        <button id="runDetection" type="submit" disabled>Analyze clip</button>
+    </form>
+
+    <div class="status" id="statusBar">
+        <span id="statusText">Select a video to enable detection.</span>
+        <span id="statusBadge">Awaiting upload</span>
+    </div>
+
+    <div class="grid">
+        <div class="panel">
+            <h2>Original clip</h2>
+            <small>Preview while the backend processes.</small>
+            <video id="previewVideo" controls playsinline></video>
+        </div>
+        <div class="panel" id="resultCard">
+            <h2 id="verdictMessage">Awaiting detection</h2>
+            <p id="summaryText">Annotated preview and vehicle stats appear here once the backend responds.</p>
+            <img id="annotatedPreview" alt="Annotated detection" class="hidden">
+            <dl>
+                <dt>Confidence</dt>
+                <dd id="confidenceValue">-</dd>
+                <dt>Vehicles tracked</dt>
+                <dd id="vehicleCount">-</dd>
+                <dt>Persistence</dt>
+                <dd id="persistenceValue">-</dd>
+                <dt>Frames processed</dt>
+                <dd id="framesValue">-</dd>
+                <dt>Timestamp</dt>
+                <dd id="timestampValue">-</dd>
+            </dl>
+            <p><strong>Tracked objects</strong></p>
+            <ul id="trackList"></ul>
+        </div>
+    </div>
+</main>
+
+<script>
+    const uploadForm = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('videoInput');
+    const previewVideo = document.getElementById('previewVideo');
+    const detectButton = document.getElementById('runDetection');
+    const statusText = document.getElementById('statusText');
+    const statusBadge = document.getElementById('statusBadge');
+    const verdictMessage = document.getElementById('verdictMessage');
+    const summaryText = document.getElementById('summaryText');
+    const annotatedPreview = document.getElementById('annotatedPreview');
+    const confidenceValue = document.getElementById('confidenceValue');
+    const vehicleCount = document.getElementById('vehicleCount');
+    const persistenceValue = document.getElementById('persistenceValue');
+    const framesValue = document.getElementById('framesValue');
+    const timestampValue = document.getElementById('timestampValue');
+    const trackList = document.getElementById('trackList');
+
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            previewVideo.removeAttribute('src');
+            detectButton.disabled = true;
+            statusText.textContent = 'Select an MP4 clip to begin.';
+            statusBadge.textContent = 'Awaiting upload';
+            return;
+        }
+        if (file.type !== 'video/mp4') {
+            statusText.textContent = 'Only MP4 files are supported.';
+            statusBadge.textContent = 'Invalid format';
+            detectButton.disabled = true;
+            return;
+        }
+        const url = URL.createObjectURL(file);
+        previewVideo.src = url;
+        detectButton.disabled = false;
+        statusText.textContent = 'Ready to analyze the clip.';
+        statusBadge.textContent = 'Waiting';
+    });
+
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const file = fileInput.files?.[0];
+        if (!file) {
+            return;
+        }
+        detectButton.disabled = true;
+        statusText.textContent = 'Analyzing video… this may take a few seconds.';
+        statusBadge.textContent = 'Processing';
+
+        const formData = new FormData();
+        formData.append('video', file);
+
+        try {
+            const response = await fetch('/detect', {
+                method: 'POST',
+                body: formData,
+            });
+            const payload = await response.json();
+            if (!payload.success) {
+                throw new Error(payload.error || 'Unknown response from server.');
+            }
+
+            verdictMessage.textContent = payload.message;
+            summaryText.textContent = payload.accident
+                ? 'Overlapping vehicles coupled with motion or speed-drop cues were detected for five frames.'
+                : 'No persistent overlap was found, so the clip is considered safe.';
+            confidenceValue.textContent = `${(payload.confidence * 100).toFixed(0)}%`;
+            vehicleCount.textContent = payload.vehicle_count;
+            persistenceValue.textContent = payload.persistence;
+            framesValue.textContent = payload.frames_processed;
+            timestampValue.textContent = new Date(payload.timestamp).toLocaleString();
+
+            if (payload.preview_image) {
+                annotatedPreview.src = `data:image/jpeg;base64,${payload.preview_image}`;
+                annotatedPreview.classList.remove('hidden');
+            } else {
+                annotatedPreview.classList.add('hidden');
+            }
+
+            trackList.innerHTML = '';
+            if (payload.tracks?.length) {
+                payload.tracks.slice(0, 6).forEach((track) => {
+                    const li = document.createElement('li');
+                    li.textContent = `#${track.track_id}: bbox ${track.bbox.join(', ')} @ score ${track.score}`;
+                    trackList.appendChild(li);
+                });
+            } else {
+                trackList.innerHTML = '<li>No persistent tracks detected.</li>';
+            }
+
+            statusText.textContent = payload.message;
+            statusBadge.textContent = payload.accident ? 'Accident' : 'Safe';
+        } catch (error) {
+            statusText.textContent = error.message;
+            statusBadge.textContent = 'Error';
+            annotatedPreview.classList.add('hidden');
+        } finally {
+            detectButton.disabled = false;
+        }
+    });
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Accident Detector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #040d12 20%, #112043 70%, #1f5e83 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e1ecff;
+        }
+
+        main {
+            background: rgba(5, 10, 20, 0.9);
+            padding: 2rem;
+            border-radius: 1.1rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            max-width: 520px;
+            width: 92%;
+            text-align: center;
+        }
+
+        h1 {
+            margin-bottom: 0.2rem;
+            font-size: 2rem;
+        }
+
+        p {
+            margin-top: 0;
+            color: #97b5ff;
+        }
+
+        .controls {
+            margin: 1.3rem 0;
+            display: grid;
+            gap: 0.9rem;
+        }
+
+        label {
+            font-weight: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            text-align: left;
+        }
+
+        input[type="file"] {
+            cursor: pointer;
+            padding: 0.9rem;
+            border-radius: 0.7rem;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.05);
+            color: inherit;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 0.9rem;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: #000;
+        }
+
+        button {
+            border: none;
+            border-radius: 0.8rem;
+            padding: 0.9rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: linear-gradient(130deg, #f05a00, #ffb347);
+            color: #0b1220;
+            transition: transform 0.2s ease;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.2);
+            color: #9aa3ba;
+        }
+
+        button:not(:disabled):hover {
+            transform: translateY(-2px);
+        }
+
+        .status {
+            margin-top: 1rem;
+            padding: 1rem 1.2rem;
+            border-radius: 0.9rem;
+            background: rgba(255, 255, 255, 0.08);
+            min-height: 46px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .status strong {
+            display: block;
+            font-size: 1.2rem;
+        }
+
+        .status small {
+            display: block;
+            margin-top: 0.4rem;
+            color: #9fc1ff;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Accident Detection</h1>
+    <p>Select a video to preview it, then trigger detection when ready.</p>
+
+    <div class="controls">
+        <label for="videoInput">
+            Choose MP4 video
+            <input id="videoInput" type="file" accept="video/mp4">
+        </label>
+        <video id="preview" controls poster="">
+            <source src="" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <button id="runDetection" disabled>Run Detection</button>
+    </div>
+
+    <div id="status" class="status hidden">
+        <strong id="statusText"></strong>
+        <small id="statusDetail"></small>
+    </div>
+</main>
+
+<script>
+    const fileInput = document.getElementById('videoInput');
+    const videoPreview = document.getElementById('preview');
+    const detectButton = document.getElementById('runDetection');
+    const statusWrapper = document.getElementById('status');
+    const statusText = document.getElementById('statusText');
+    const statusDetail = document.getElementById('statusDetail');
+    let currentFile = null;
+
+    function showStatus(message, detail = '', isError = false) {
+        statusWrapper.classList.remove('hidden');
+        statusWrapper.style.border = isError ? '1px solid #ff6b6b' : 'none';
+        statusText.textContent = message;
+        statusDetail.textContent = detail;
+    }
+
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) {
+            detectButton.disabled = true;
+            videoPreview.removeAttribute('src');
+            videoPreview.load();
+            statusWrapper.classList.add('hidden');
+            return;
+        }
+
+        if (file.type !== 'video/mp4') {
+            showStatus('Only MP4 files are supported.', 'Please select a proper video file.', true);
+            detectButton.disabled = true;
+            return;
+        }
+
+        currentFile = file;
+        const objectUrl = URL.createObjectURL(file);
+        videoPreview.src = objectUrl;
+        videoPreview.load();
+        detectButton.disabled = false;
+        showStatus('Video ready to analyze', 'Click "Run Detection" when you want to process the clip.');
+    });
+
+    function parseBackendResponse(html) {
+        const parser = new DOMParser();
+        const parsed = parser.parseFromString(html, 'text/html');
+        return {
+            verdict: parsed.querySelector('.status strong')?.textContent?.trim() || '',
+            detail: parsed.querySelector('.status small')?.textContent?.trim() || ''
+        };
+    }
+
+    detectButton.addEventListener('click', async () => {
+        if (!currentFile) {
+            showStatus('Select a video first.', '', true);
+            return;
+        }
+
+        detectButton.disabled = true;
+        showStatus('Analyzing video…', 'Please wait while the backend checks for overlapping vehicles.');
+
+        const payload = new FormData();
+        payload.append('video', currentFile);
+
+        try {
+            const response = await fetch('/', {
+                method: 'POST',
+                body: payload
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}`);
+            }
+
+            const html = await response.text();
+            const { verdict, detail } = parseBackendResponse(html);
+
+            if (!verdict) {
+                showStatus('Unexpected server response.', 'Try uploading the video again or check the server logs.', true);
+                detectButton.disabled = false;
+                return;
+            }
+
+            const statusKey = verdict.includes('🚨') ? 'accident' : 'safe';
+            const params = new URLSearchParams({
+                status: statusKey,
+                video: currentFile.name,
+                confidence: detail || '',
+                timestamp: new Date().toISOString()
+            });
+
+            window.location.href = `/static/report.html?${params.toString()}`;
+        } catch (error) {
+            showStatus('Detection failed', error.message, true);
+            detectButton.disabled = false;
+        }
+    });
+</script>
+</body>
+</html>

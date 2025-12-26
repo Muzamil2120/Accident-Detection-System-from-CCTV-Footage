@@ -1,0 +1,15 @@
+# Training-only dependencies (keeps Flask runtime lightweight)
+#
+# NOTE: This project uses Python 3.13; TensorFlow is often not available for 3.13.
+# PyTorch is used instead for the beginner-friendly CNN+LSTM training pipeline.
+
+numpy>=1.24
+opencv-python>=4.7
+scikit-learn>=1.3
+tqdm>=4.66
+
+# Install PyTorch following the official selector for your CUDA/CPU:
+# https://pytorch.org/get-started/locally/
+# Example (CPU-only, may differ by OS/py version):
+# torch
+# torchvision
